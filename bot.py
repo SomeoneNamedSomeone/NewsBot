@@ -38,14 +38,14 @@ RSS_FEEDS = [
     {"url": "https://feeds.a.dj.com/rss/RSSOpinion.xml",            "name": "WSJ Opinion"},
     {"url": "https://finance.yahoo.com/news/rssindex",               "name": "Yahoo Finance"},
     {"url": "https://www.investopedia.com/feedbuilder/feed/getfeed/?feedName=rss_headline", "name": "Investopedia"},
-    {"url": "https://feeds.reuters.com/reuters/businessNews",        "name": "Reuters Business"},
-    {"url": "https://feeds.reuters.com/reuters/financialNews",       "name": "Reuters Finance"},
+    {"url": "https://www.reuters.com/rssFeed/2BBoPOQX",               "name": "Reuters Business"},
+    {"url": "https://www.reuters.com/rssFeed/4OH8XCi4",              "name": "Reuters Finance"},
     {"url": "https://www.cnbc.com/id/10000664/device/rss/rss.html", "name": "CNBC Finance"},
     {"url": "https://www.economist.com/finance-and-economics/rss.xml", "name": "The Economist"},
-    {"url": "https://www.reddit.com/r/investing/.rss",               "name": "r/investing"},
-    {"url": "https://www.reddit.com/r/stocks/.rss",                  "name": "r/stocks"},
-    {"url": "https://www.reddit.com/r/economics/.rss",               "name": "r/economics"},
-    {"url": "https://www.reddit.com/r/SecurityAnalysis/.rss",        "name": "r/SecurityAnalysis"},
+    {"url": "https://www.reddit.com/r/investing/.rss",               "name": "r/investing",        "reddit": True},
+    {"url": "https://www.reddit.com/r/stocks/.rss",                  "name": "r/stocks",            "reddit": True},
+    {"url": "https://www.reddit.com/r/economics/.rss",               "name": "r/economics",         "reddit": True},
+    {"url": "https://www.reddit.com/r/SecurityAnalysis/.rss",        "name": "r/SecurityAnalysis",  "reddit": True},
     {"url": "https://seekingalpha.com/market_currents.xml",          "name": "Seeking Alpha"},
     {"url": "https://feeds.marketwatch.com/marketwatch/topstories/", "name": "MarketWatch"},
 ]
@@ -115,12 +115,11 @@ def _strip_html(text: str) -> str:
 def fetch_feed(feed_info: dict) -> list:
     name = feed_info["name"]
     url = feed_info["url"]
-    headers = {
-        "User-Agent": (
-            "MarketPulseBot/1.0 (financial news aggregator; "
-            "contact: marketpulsebot@example.com)"
-        )
-    }
+    if feed_info.get("reddit"):
+        user_agent = "script:MarketPulseBot:1.0 (by /u/marketpulsebot)"
+    else:
+        user_agent = "MarketPulseBot/1.0 (financial news aggregator)"
+    headers = {"User-Agent": user_agent}
     try:
         parsed = feedparser.parse(url, request_headers=headers)
         if parsed.bozo and not parsed.entries:
