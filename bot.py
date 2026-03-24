@@ -4,7 +4,8 @@ import sqlite3
 import logging
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import feedparser
 import anthropic
@@ -29,8 +30,8 @@ MAX_NEW_PER_FEED = int(os.environ.get("MAX_NEW_PER_FEED", "5"))
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 
 DB_PATH = "seen_articles.db"
-CHECK_INTERVAL = 3 * 60 * 60  # 3 hours
-ARTICLE_DELAY = 2              # seconds between articles
+RUN_HOUR = 17          # 5 PM Eastern
+ARTICLE_DELAY = 2      # seconds between articles
 
 # ── RSS Feeds ─────────────────────────────────────────────────────────────────
 RSS_FEEDS = [
@@ -359,6 +360,18 @@ def run_cycle() -> None:
     log.info("Cycle complete — new: %d, posted: %d", total_new, total_posted)
 
 
+def sleep_until_next_run() -> None:
+    """Sleep until the next 5 PM Eastern time."""
+    et = ZoneInfo("America/New_York")
+    now = datetime.now(et)
+    next_run = now.replace(hour=RUN_HOUR, minute=0, second=0, microsecond=0)
+    if now >= next_run:
+        next_run += timedelta(days=1)
+    seconds = (next_run - now).total_seconds()
+    log.info("Next run at %s ET (%.0f minutes from now)", next_run.strftime("%Y-%m-%d %H:%M"), seconds / 60)
+    time.sleep(seconds)
+
+
 def main() -> None:
     # Validate required environment variables
     missing = [v for v in ("ANTHROPIC_API_KEY", "DISCORD_WEBHOOK_URL") if not os.environ.get(v)]
@@ -368,6 +381,7 @@ def main() -> None:
     log.info("Market Pulse bot starting up (threshold=%d/10)", RELEVANCE_THRESHOLD)
     init_db()
     validate_feeds()
+    sleep_until_next_run()
 
     while True:
         try:
@@ -375,8 +389,7 @@ def main() -> None:
         except Exception as exc:
             log.error("Unexpected error in run cycle: %s", exc)
 
-        log.info("Sleeping 3 hours until next cycle...")
-        time.sleep(CHECK_INTERVAL)
+        sleep_until_next_run()
 
 
 if __name__ == "__main__":
