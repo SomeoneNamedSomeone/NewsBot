@@ -25,11 +25,12 @@ log = logging.getLogger(__name__)
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 RELEVANCE_THRESHOLD = int(os.environ.get("RELEVANCE_THRESHOLD", "6"))
+MAX_NEW_PER_FEED = int(os.environ.get("MAX_NEW_PER_FEED", "5"))
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 
 DB_PATH = "seen_articles.db"
 CHECK_INTERVAL = 3 * 60 * 60  # 3 hours
-ARTICLE_DELAY = 3              # seconds between articles
-MODEL = "claude-sonnet-4-20250514"
+ARTICLE_DELAY = 2              # seconds between articles
 
 # ── RSS Feeds ─────────────────────────────────────────────────────────────────
 RSS_FEEDS = [
@@ -281,20 +282,54 @@ def post_to_discord(
 
 # ── Main cycle ────────────────────────────────────────────────────────────────
 
+def seed_feed(articles: list) -> int:
+    """Mark all but the 3 newest articles as seen without analyzing them.
+    Called on the very first run to avoid a backlog of API calls."""
+    seeded = 0
+    for article in articles[3:]:
+        if not is_seen(article["url"]):
+            mark_seen(article["url"])
+            seeded += 1
+    return seeded
+
+
+def is_first_run() -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute("SELECT COUNT(*) FROM seen_articles")
+    count = cur.fetchone()[0]
+    conn.close()
+    return count == 0
+
+
 def run_cycle() -> None:
     log.info("Starting feed check cycle...")
+    first_run = is_first_run()
+    if first_run:
+        log.info("First run detected — seeding database to avoid backlog...")
+
     total_new = 0
     total_posted = 0
+    total_seeded = 0
 
     for feed_info in RSS_FEEDS:
         articles = fetch_feed(feed_info)
+
+        if first_run:
+            total_seeded += seed_feed(articles)
+            articles = articles[:3]  # only analyse the 3 newest on first run
+
+        new_this_feed = 0
         for article in articles:
             url = article["url"]
             if is_seen(url):
                 continue
+            if new_this_feed >= MAX_NEW_PER_FEED:
+                log.info("Cap reached for %s, skipping remaining new articles", feed_info["name"])
+                break
 
             mark_seen(url)
             total_new += 1
+            new_this_feed += 1
             log.info("New article [%s]: %.60s", article["source_name"], article["title"])
 
             result = analyze_article(article["title"], article["summary"])
@@ -320,9 +355,9 @@ def run_cycle() -> None:
 
             time.sleep(ARTICLE_DELAY)
 
-    log.info(
-        "Cycle complete — new: %d, posted: %d", total_new, total_posted
-    )
+    if first_run:
+        log.info("Seeded %d backlog articles (skipped without analysis)", total_seeded)
+    log.info("Cycle complete — new: %d, posted: %d", total_new, total_posted)
 
 
 def main() -> None:
