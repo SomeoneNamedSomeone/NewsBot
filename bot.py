@@ -195,31 +195,30 @@ def categorize_article(title: str, summary: str) -> str:
 # ── Claude analysis ───────────────────────────────────────────────────────────
 
 ANALYSIS_PROMPT = """\
-You are an assistant helping a retail investor who is focused on financial markets \
-and is learning to become a better investor.
+You are an assistant helping a retail investor focused on financial markets who is learning to become a better investor.
 
-Analyse the following news article and rate it 1–10 for relevance to financial \
-markets and investing.
+Analyse the following news article and rate it 1–10 for relevance to financial markets and investing.
 
 Article Title: {title}
 Article Summary: {summary}
 
 Guidelines:
-- Deprioritise: crypto-only news, celebrity business stories, and general tech \
-product launches unless they have clear market implications.
-- Prioritise: macroeconomic data, Fed/central bank decisions, earnings reports, \
-geopolitical events with market impact, sector-wide trends, and regulatory changes \
-affecting markets.
+- Deprioritise: crypto-only news, celebrity business stories, and general tech product launches unless they have clear market implications.
+- Prioritise: macroeconomic data, Fed/central bank decisions, earnings reports, geopolitical events with market impact, sector-wide trends, and regulatory changes affecting markets.
 
-If the score is {threshold} or above, write one paragraph that explains:
-  • What the event is
-  • What market sectors or asset classes it affects
-  • The broader macro implications
-  • How it might affect investor sentiment
-  • What a retail investor should understand about why this matters
+If the score is {threshold} or above, provide the following three sections:
+
+**What's affected:**
+Bullet list of specific financial instruments, asset classes, or sectors directly impacted (e.g. US Treasury bonds, S&P 500 financials sector, WTI crude, USD/JPY). Be specific — name the instruments, not just broad categories.
+
+**What this tells us about current markets:**
+2–3 bullets explaining what this event reveals about the current state of the market, economy, or investor sentiment right now.
+
+**What to watch going forward:**
+2–3 bullets on what future developments, data releases, or price movements this event sets up — what a retail investor should be paying attention to as a result of this news.
 
 Return your response as valid JSON only — no markdown fences, no extra text:
-{{"score": <integer 1–10>, "analysis": "<paragraph or empty string if score < {threshold}>"}}
+{{"score": <integer 1–10>, "analysis": "<full formatted text or empty string if score < {threshold}>"}}
 """
 
 
